@@ -1,0 +1,21 @@
+{
+  "background_color": "#c59f77",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Radarempleo satelital",
+  "orientation": "any",
+  "scope": "/radarempleo-bogota/",
+  "short_name": "Radarempleo satelital",
+  "start_url": "/radarempleo-bogota/",
+  "theme_color": "#ffffff",
+  "id": "https://pipesuarez91.github.io/radarempleo-bogota/",
+  "description": "es una app para encontrar rapido seguro y facil trabajo para no seguir saliendo exponiendote solo por trabajo que ni siquiera te pagan bien aca te damos trabajos a lo que te acoples con ia",
+  "lang": "en",
+  "categories": [
+    "business",
+    "navigation",
+    "productivity",
+    "social",
+    "utilities"
+  ]
+}

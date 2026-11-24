@@ -1,21 +1,35 @@
 {
-  "background_color": "#c59f77",
-  "dir": "ltr",
-  "display": "standalone",
-  "name": "Radarempleo satelital",
-  "orientation": "any",
-  "scope": "/radarempleo-bogota/",
-  "short_name": "Radarempleo satelital",
-  "start_url": "/radarempleo-bogota/",
-  "theme_color": "#ffffff",
-  "id": "https://pipesuarez91.github.io/radarempleo-bogota/",
-  "description": "es una app para encontrar rapido seguro y facil trabajo para no seguir saliendo exponiendote solo por trabajo que ni siquiera te pagan bien aca te damos trabajos a lo que te acoples con ia",
-  "lang": "en",
-  "categories": [
-    "business",
-    "navigation",
-    "productivity",
-    "social",
-    "utilities"
-  ]
+"name": "Radarempleo satelital",
+"short_name": "Radarempleo satelital",
+"description": "Es una app para encontrar rápido, seguro y fácil trabajo en Bogotá con GPS 24/7, asistente IA y enlaces directos a portales.",
+"id": "https://pipesuarez91.github.io/radarempleo-bogota/",
+"start_url": "/radarempleo-bogota/",
+"scope": "/radarempleo-bogota/",
+"display": "standalone",
+"orientation": "any",
+"dir": "ltr",
+"lang": "es-CO",
+"background_color": "#0c0b0a",
+"theme_color": "#2b1d14",
+"categories": [
+"business",
+"navigation",
+"productivity",
+"social",
+"utilities"
+],
+"icons": [
+{
+"src": "https://pipesuarez91.github.io/radarempleo-bogota/launchericon-192x192.png",
+"sizes": "192x192",
+"type": "image/png",
+"purpose": "any"
+},
+{
+"src": "https://pipesuarez91.github.io/radarempleo-bogota/launchericon-512x512.png",
+"sizes": "512x512",
+"type": "image/png",
+"purpose": "any maskable"
+}
+]
 }

@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RadarEmpleo Satelital 24/7 - Bogotá</title>
+    <link rel="manifest" href="./manifest.json" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cafe: {
+                            50: "#faf6f2",
+                            100: "#f2e8de",
+                            200: "#e3ceb9",
+                            300: "#d1ae8c",
+                            700: "#5c3d28",
+                            800: "#473021",
+                            900: "#2b1d14"
+                        },
+                        piedra: {
+                            50: "#f7f6f4",
+                            100: "#ebe9e5",
+                            200: "#d5d1ca",
+                            300: "#a8a299",
+                            700: "#36332f",
+                            800: "#211f1d",
+                            900: "#141312",
+                            950: "#0c0b0a"
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #0c0b0a;
+            color: #f7f6f4;
+        }
+        #satellite-map {
+            height: 430px;
+            width: 100%;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-piedra-950 text-piedra-50">
+
+    <!-- Header -->
+    <header class="bg-piedra-900/95 border-b border-piedra-700 sticky top-0 z-30 backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-cafe-800 border border-amber-500/40 flex items-center justify-center text-amber-300 font-extrabold text-sm">
+                    R24
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-piedra-50">
+                            RadarEmpleo Satelital 24/7
+                        </h1>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/40 text-amber-200 font-semibold">
+                            20 Localidades • Bogotá
+                        </span>
+                    </div>
+                    <p id="live-ticker" class="text-xs text-piedra-300">
+                        Radar GPS 24/7 activo en Bogotá • 500 vacantes • Enlaces directos a CompuTrabajo, elempleo, Indeed, LinkedIn y Magneto
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span id="gps-permission-status" class="text-[11px] px-2.5 py-1.5 rounded-xl bg-piedra-800 border border-piedra-700 text-piedra-300">
+                    Permiso GPS: Verificando...
+                </span>
+                <button type="button" onclick="locateUserExact()" class="px-3 py-2 rounded-xl bg-piedra-800 hover:bg-piedra-700 text-amber-200 border border-piedra-700 font-semibold text-xs transition cursor-pointer">
+                    <span id="gps-btn-label">Activar / Pedir permiso GPS</span>
+                </button>
+                <button type="button" onclick="openPublishModal()" class="px-3.5 py-2 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 border border-cafe-300/30 font-semibold text-xs sm:text-sm transition cursor-pointer">
+                    + Publicar oferta
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-5 space-y-6">
+
+        <!-- Location & Radar Status -->
+        <section class="bg-piedra-800/90 border border-piedra-700 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="space-y-1.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs uppercase tracking-wider text-piedra-300 font-semibold">Ubicación del Radar:</span>
+                    <span id="current-location-text" class="text-sm font-bold text-amber-300">Kennedy — Portal Américas / Tintal (Bogotá)</span>
+                    <span id="gps-accuracy-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-piedra-900 border border-piedra-700 text-piedra-300">
+                        Modo: Radar Bogotá
+                    </span>
+                </div>
+                <p id="location-detail-text" class="text-xs text-piedra-300">
+                    Coordenadas: 4.63000, -74.15200 • Selecciona tu localidad o activa el GPS para centrar el mapa y calcular distancia en km.
+                </p>
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <span class="text-[11px] text-amber-200/90 font-semibold">Centrar en localidad:</span>
+                    <select id="quick-locality-select" onchange="selectLocalityFromRadar(this.value)"
+                        class="bg-piedra-900 text-piedra-100 text-xs px-2.5 py-1.5 rounded-lg border border-piedra-700 focus:outline-none focus:border-amber-500">
+                        <option value="">Elegir localidad...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button id="map-style-btn" type="button" onclick="toggleMapStyle()"
+                    class="px-3 py-2 rounded-xl bg-piedra-900 hover:bg-piedra-700 text-piedra-100 border border-piedra-700 text-xs font-semibold transition cursor-pointer">
+                    Vista: Satélite + Calles
+                </button>
+                <button type="button" onclick="centerMapOnUser()"
+                    class="px-3 py-2 rounded-xl bg-piedra-900 hover:bg-piedra-700 text-amber-200 border border-piedra-700 text-xs font-semibold transition cursor-pointer">
+                    Centrar radar
+                </button>
+                <button type="button" onclick="openGoogleMapsAtLocation()"
+                    class="px-3 py-2 rounded-xl bg-cafe-800 hover:bg-cafe-700 text-amber-200 border border-amber-500/30 text-xs font-semibold transition cursor-pointer">
+                    Abrir en Google Maps
+                </button>
+            </div>
+        </section>
+
+        <!-- Satellite Map + AI Assistant -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <!-- GPS Location Map Only -->
+            <div class="bg-piedra-800/90 border border-piedra-700 rounded-2xl overflow-hidden flex flex-col">
+                <div class="px-4 py-3 border-b border-piedra-700 flex items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-sm font-bold text-piedra-50">GPS de Ubicación (Bogotá)</h2>
+                        <p class="text-[11px] text-piedra-300">Muestra tu ubicación GPS y accesos en mapa a LinkedIn, CompuTrabajo, elempleo, Indeed y Magneto.</p>
+                    </div>
+                    <span id="map-pins-count" class="text-[11px] px-2.5 py-1 rounded-full bg-piedra-900 border border-piedra-700 text-amber-200 font-semibold">
+                        GPS + Portales
+                    </span>
+                </div>
+                <div id="satellite-map" class="bg-piedra-900"></div>
+            </div>
+
+            <!-- AI Assistant in the Center -->
+            <div class="bg-piedra-800/90 border border-piedra-700 rounded-2xl p-4 flex flex-col justify-between gap-4">
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <h2 class="text-sm font-bold text-amber-300">Asistente IA Buscador (Todos los Portales y Zonas 24/7)</h2>
+                        <button type="button" onclick="clearAIFilter()" class="text-[11px] text-piedra-300 hover:text-amber-200 underline cursor-pointer">
+                            Limpiar filtro IA
+                        </button>
+                    </div>
+                    <p class="text-xs text-piedra-300">
+                        Dime qué trabajo quieres y en qué zona o localidad. Te priorizo opciones cercanas a tu ubicación, te doy cualquier cosa que pidas y te pregunto antes de abrir la página para que tú elijas cuándo entrar.
+                    </p>
+                    <div class="flex gap-2">
+                        <input id="ai-prompt-input" type="text" placeholder="Ej: quiero un trabajo de perfumes cerca o auxiliar en Kennedy..."
+                            onkeydown="if(event.key==='Enter') runAssistantQuery()"
+                            class="flex-1 bg-piedra-900 text-piedra-100 text-xs sm:text-sm px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500" />
+                        <button type="button" onclick="runAssistantQuery()"
+                            class="px-4 py-2 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 text-xs sm:text-sm font-semibold transition cursor-pointer">
+                            Buscar con IA
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 text-[11px] text-piedra-300">
+                        <span class="text-piedra-300">
+                            Confirmación manual activa: Laia te pregunta y tú decides cuándo abrir el enlace.
+                        </span>
+                        <button type="button" onclick="confirmAndOpenAISearchPage()" class="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-600/40 font-semibold cursor-pointer">
+                            Sí, abrir página ahora
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ai-response-box" class="bg-piedra-900/90 border border-piedra-700 rounded-xl p-3.5 text-xs text-piedra-200 space-y-2.5 max-h-80 overflow-y-auto">
+                    <p class="font-semibold text-amber-200">Laia — Buscador inteligente 24/7 listo:</p>
+                    <p class="text-piedra-300">
+                        Preparando recomendaciones cercanas y accesos directos por portales...
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters -->
+        <section class="bg-piedra-800/90 border border-piedra-700 rounded-2xl p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <input id="filter-keyword" type="text" placeholder="Buscar cargo, empresa o barrio..."
+                    oninput="onFilterChange()"
+                    class="bg-piedra-900 text-piedra-100 text-xs sm:text-sm px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500" />
+
+                <select id="filter-locality" onchange="onFilterChange()"
+                    class="bg-piedra-900 text-piedra-100 text-xs sm:text-sm px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500">
+                    <option value="TODAS">Todas las 20 localidades</option>
+                </select>
+
+                <select id="filter-category" onchange="onFilterChange()"
+                    class="bg-piedra-900 text-piedra-100 text-xs sm:text-sm px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500">
+                    <option value="TODAS">Todas las categorías</option>
+                </select>
+
+                <select id="filter-sort" onchange="onFilterChange()"
+                    class="bg-piedra-900 text-piedra-100 text-xs sm:text-sm px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500">
+                    <option value="distance">Ordenar: Más cercanos al GPS</option>
+                    <option value="recent_24_7">Ordenar: Actualización 24/7 más reciente</option>
+                    <option value="salary_reported">Ordenar: Salario reportado primero</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Jobs List -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-piedra-50">Ofertas de Empleo Disponibles</h2>
+                    <p class="text-xs text-piedra-300">
+                        Monitoreo continuo 24/7. Solo se muestra salario cuando el empleador o portal lo publica explícitamente; si no aparece publicado, se indica como <em>Salario según publicación en portal</em>.
+                    </p>
+                </div>
+                <span id="jobs-count-label" class="text-xs font-bold px-3 py-1 rounded-full bg-piedra-800 border border-piedra-700 text-amber-300">
+                    500 vacantes activas
+                </span>
+            </div>
+
+            <div id="jobs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+    </main>
+
+    <!-- Job Detail & Cupo Report Modal -->
+    <div id="job-modal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-piedra-900 border border-piedra-700 rounded-2xl max-w-xl w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <span id="modal-category" class="text-[11px] px-2.5 py-0.5 rounded-full bg-cafe-800 text-amber-200 font-semibold"></span>
+                    <h3 id="modal-title" class="text-lg font-extrabold text-piedra-50 mt-1"></h3>
+                    <p id="modal-company-loc" class="text-xs text-piedra-300"></p>
+                </div>
+                <button type="button" onclick="closeJobModal()" class="text-piedra-300 hover:text-piedra-50 text-sm px-2 py-1 cursor-pointer">Cerrar</button>
+            </div>
+
+            <div class="bg-piedra-800/80 border border-piedra-700 rounded-xl p-3.5 space-y-2 text-xs">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-piedra-300">Salario reportado:</span>
+                    <span id="modal-salary" class="text-sm font-extrabold text-emerald-300"></span>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-piedra-300">Distancia desde GPS:</span>
+                    <span id="modal-distance" class="font-semibold text-amber-200"></span>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-piedra-300">Estado de monitoreo 24/7:</span>
+                    <span id="modal-law" class="font-semibold text-piedra-100"></span>
+                </div>
+                <div class="pt-1 border-t border-piedra-700">
+                    <p class="text-piedra-300 font-semibold mb-1">Requisitos y especificaciones:</p>
+                    <p id="modal-reqs" class="text-piedra-100 leading-relaxed"></p>
+                </div>
+                <div id="modal-contact-box" class="pt-1 border-t border-piedra-700 hidden">
+                    <p class="text-piedra-300 font-semibold mb-1">Canal de contacto registrado:</p>
+                    <p id="modal-contact" class="text-amber-200 font-semibold"></p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="handleModalRequestJob()" class="px-4 py-2 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 text-xs font-bold transition cursor-pointer">
+                    Pedir empleo
+                </button>
+                <button type="button" onclick="handleModalRenewJob()" class="px-4 py-2 rounded-xl bg-piedra-800 hover:bg-piedra-700 text-amber-200 border border-piedra-700 text-xs font-semibold transition cursor-pointer">
+                    Renovar
+                </button>
+                <span id="modal-action-status" class="text-xs text-amber-200"></span>
+            </div>
+
+            <!-- Cupo Report / Comments -->
+            <div class="border-t border-piedra-700 pt-3 space-y-2.5">
+                <p class="text-xs font-bold text-piedra-100">
+                    Reportar estado del cupo (escribe "ya no hay cupo" si ya se llenó)
+                </p>
+                <div class="flex gap-2">
+                    <input id="modal-comment-input" type="text" placeholder="Ej: Ya no hay cupo en esta vacante..."
+                        class="flex-1 bg-piedra-800 text-piedra-100 text-xs px-3 py-2 rounded-xl border border-piedra-700 focus:outline-none focus:border-amber-500" />
+                    <button type="button" onclick="submitCupoComment()" class="px-3.5 py-2 rounded-xl bg-piedra-700 hover:bg-piedra-600 text-piedra-50 text-xs font-semibold cursor-pointer">
+                        Enviar aviso
+                    </button>
+                </div>
+                <div id="modal-comments-list" class="space-y-1.5 text-xs text-piedra-300"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Publish Offer Modal -->
+    <div id="publish-modal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-piedra-900 border border-piedra-700 rounded-2xl max-w-lg w-full p-5 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-piedra-50">Publicar Oferta de Empleo</h3>
+                <button type="button" onclick="closePublishModal()" class="text-xs text-piedra-300 hover:text-piedra-50 cursor-pointer">Cerrar</button>
+            </div>
+            <form onsubmit="handlePublishOffer(event)" class="space-y-3 text-xs">
+                <input id="pub-title" type="text" required placeholder="Cargo (Ej: Panadero, Auxiliar de Bodega)"
+                    class="w-full bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700" />
+                <input id="pub-company" type="text" required placeholder="Empresa o negocio"
+                    class="w-full bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700" />
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select id="pub-locality" class="bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700"></select>
+                    <input id="pub-salary" type="number" min="0" step="1000" placeholder="Salario publicado (dejar vacío si no aplica)"
+                        class="bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700" />
+                </div>
+                <input id="pub-contact" type="text" placeholder="Canal de contacto o enlace de postulación (opcional)"
+                    class="w-full bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700" />
+                <textarea id="pub-reqs" rows="2" placeholder="Requisitos, horario y condiciones..."
+                    class="w-full bg-piedra-800 text-piedra-100 px-3 py-2 rounded-xl border border-piedra-700"></textarea>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closePublishModal()" class="px-3 py-2 rounded-xl bg-piedra-800 text-piedra-300 cursor-pointer">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 font-bold cursor-pointer">Agregar al radar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-piedra-800 border border-amber-500/40 text-amber-100 text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg hidden z-50"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.__sharedJobsStore = {
+            db: null,
+            auth: null,
+            user: null,
+            appId: typeof __app_id !== "undefined" ? __app_id : "radarempleo-bogota",
+            publicJobsRef: null,
+            listenerStarted: false,
+            async init() {
+                try {
+                    if (typeof __firebase_config === "undefined" || !__firebase_config) return;
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    this.auth = getAuth(app);
+                    this.db = getFirestore(app);
+
+                    if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
+                        await signInWithCustomToken(this.auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(this.auth);
+                    }
+                    this.user = this.auth.currentUser;
+                    if (!this.user) return;
+
+                    this.publicJobsRef = collection(this.db, "artifacts", this.appId, "public", "data", "shared_offers");
+                    this.subscribePublicOffers();
+                } catch (err) {
+                    console.warn("Sincronización compartida en modo local:", err);
+                }
+            },
+            subscribePublicOffers() {
+                if (!this.publicJobsRef || !this.user || this.listenerStarted) return;
+                this.listenerStarted = true;
+                onSnapshot(
+                    this.publicJobsRef,
+                    (snapshot) => {
+                        const remotePublished = [];
+                        snapshot.forEach((d) => {
+                            const data = d.data();
+                            if (data && data.id && data.title) {
+                                remotePublished.push({
+                                    ...data,
+                                    comments: Array.isArray(data.comments) ? data.comments : []
+                                });
+                            }
+                        });
+                        if (typeof window.syncSharedOffers === "function") {
+                            window.syncSharedOffers(remotePublished);
+                        }
+                    },
+                    (err) => {
+                        console.warn("Error escuchando ofertas públicas:", err);
+                    }
+                );
+            },
+            async publishOffer(job) {
+                try {
+                    if (!this.publicJobsRef || !this.user || !job || !job.id) return;
+                    const docRef = doc(this.publicJobsRef, job.id);
+                    await setDoc(docRef, {
+                        ...job,
+                        comments: Array.isArray(job.comments) ? job.comments : [],
+                        publishedBy: this.user.uid
+                    });
+                } catch (err) {
+                    console.warn("No se pudo guardar en nube compartida:", err);
+                }
+            },
+            async removeOffer(jobId) {
+                try {
+                    if (!this.publicJobsRef || !this.user || !jobId) return;
+                    await deleteDoc(doc(this.publicJobsRef, jobId));
+                } catch (err) {
+                    console.warn("No se pudo eliminar oferta compartida:", err);
+                }
+            }
+        };
+
+        window.__sharedJobsStore.init();
+    </script>
+
+    <script>
+        const BOGOTA_LOCALITIES = [
+            { name: "Usaquén", zone: "Norte", barrio: "Santa Bárbara", lat: 4.6978, lng: -74.0315 },
+            { name: "Chapinero", zone: "Norte-Centro", barrio: "Chapinero Central", lat: 4.6458, lng: -74.0628 },
+            { name: "Santa Fe", zone: "Centro", barrio: "Las Nieves", lat: 4.6097, lng: -74.0716 },
+            { name: "San Cristóbal", zone: "Suroriente", barrio: "20 de Julio", lat: 4.5686, lng: -74.0844 },
+            { name: "Usme", zone: "Sur", barrio: "Danubio", lat: 4.4836, lng: -74.1157 },
+            { name: "Tunjuelito", zone: "Sur", barrio: "Venecia", lat: 4.5758, lng: -74.1306 },
+            { name: "Bosa", zone: "Suroccidente", barrio: "Bosa Central", lat: 4.6176, lng: -74.1823 },
+            { name: "Kennedy", zone: "Suroccidente", barrio: "Portal Américas / Tintal", lat: 4.6300, lng: -74.1520 },
+            { name: "Fontibón", zone: "Occidente", barrio: "Modelia / Fontibón Centro", lat: 4.6782, lng: -74.1415 },
+            { name: "Engativá", zone: "Noroccidente", barrio: "Minuto de Dios / Álamos", lat: 4.7026, lng: -74.1145 },
+            { name: "Suba", zone: "Norte", barrio: "Suba Centro / Niza", lat: 4.7411, lng: -74.0825 },
+            { name: "Barrios Unidos", zone: "Norte-Centro", barrio: "12 de Octubre / Polo", lat: 4.6685, lng: -74.0755 },
+            { name: "Teusaquillo", zone: "Centro-Occidente", barrio: "Galerías / Parkway", lat: 4.6395, lng: -74.0858 },
+            { name: "Los Mártires", zone: "Centro", barrio: "Ricaurte / Paloquemao", lat: 4.6056, lng: -74.0872 },
+            { name: "Antonio Nariño", zone: "Sur", barrio: "Restrepo", lat: 4.5882, lng: -74.1018 },
+            { name: "Puente Aranda", zone: "Centro-Sur", barrio: "Salazar Gómez / Outlet", lat: 4.6164, lng: -74.1128 },
+            { name: "La Candelaria", zone: "Centro Histórico", barrio: "La Catedral", lat: 4.5964, lng: -74.0721 },
+            { name: "Rafael Uribe Uribe", zone: "Sur", barrio: "Quiroga / Olaya", lat: 4.5764, lng: -74.1122 },
+            { name: "Ciudad Bolívar", zone: "Sur", barrio: "Lucero / Candelaria La Nueva", lat: 4.5655, lng: -74.1455 },
+            { name: "Sumapaz", zone: "Rural Sur", barrio: "San Juan de Sumapaz", lat: 4.2816, lng: -74.2226 }
+        ];
+
+        const ROLE_TEMPLATES = [
+            { title: "Auxiliar de Panadería y Pastelería", category: "Panadería", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia básica en horneo, amasado o vitrina; carné de manipulación de alimentos al día o disposición para tramitarlo.", tip: "Destaca tu rapidez en producción y limpieza de hornos/mesones." },
+            { title: "Auxiliar Operativo y Logístico de Bodega", category: "Logística", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Bachiller, cargue/descargue, inventario y disponibilidad de turnos rotativos en Bogotá.", tip: "Menciona manejo de picking, packing, estibas o lectores de código si los conoces." },
+            { title: "Asesor Comercial y de Ventas Presencial", category: "Ventas", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Buena comunicación, atención al cliente y experiencia comercial en punto de venta o campo.", tip: "Resalta cumplimiento de metas, cierre de ventas y trato amable al cliente." },
+            { title: "Conductor de Reparto Urbano", category: "Transporte", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Licencia de conducción vigente (C1 o C2 según vehículo), conocimiento de vías de Bogotá y paz y salvo en comparendos.", tip: "Ten a la mano tu licencia al día, historial limpio y experiencia en rutas urbanas." },
+            { title: "Cajero y Atención al Público", category: "Comercio", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Bachiller, manejo de caja, datáfono y orientación amable al cliente.", tip: "Enfatiza cuadre de caja sin descuadres, agilidad y manejo de medios de pago." },
+            { title: "Auxiliar Contable y Administrativo", category: "Administración", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Técnico o tecnólogo en contabilidad o administración, manejo de Excel y soporte documental.", tip: "Menciona causación, facturación, conciliaciones o tablas dinámicas en Excel." },
+            { title: "Técnico de Mantenimiento General", category: "Mantenimiento", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia en reparaciones locativas, electricidad básica, plomería o soporte técnico.", tip: "Explica qué fallas sabes diagnosticar y resolver de forma segura y rápida." },
+            { title: "Auxiliar de Cocina y Manipulación", category: "Gastronomía", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia en preparación de alimentos, BPM (buenas prácticas de manufactura) y trabajo en equipo.", tip: "Resalta higiene, mise en place y ritmo de trabajo en horas pico." },
+            { title: "Mensajero Motorizado con Moto", category: "Mensajería", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Moto propia al día (SOAT, técnico-mecánica y pase A2), conocimiento de calles y direcciones de Bogotá.", tip: "Indica si conoces bien el norte, sur, centro u occidente y si cuentas con maleta o parrilla." },
+            { title: "Operario de Producción y Planta", category: "Manufactura", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Disponibilidad para turnos rotativos, seguimiento de instrucciones de seguridad y trabajo en línea.", tip: "Destaca puntualidad, cumplimiento de normas SST y constancia en planta." },
+            { title: "Recepcionista y Servicio al Cliente", category: "Servicio al Cliente", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Buena presentación verbal y escrita, manejo de llamadas, agenda o recepción de visitantes.", tip: "Muestra calma ante consultas difíciles y orden en registro de información." },
+            { title: "Auxiliar de Aseo, Cafetería y Servicios Generales", category: "Servicios Generales", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia en limpieza de oficinas, locales o conjuntos y preparación básica de tinto/cafetería.", tip: "Resalta discreción, orden y cumplimiento de rutinas de aseo." },
+            { title: "Asesor de Call Center / Atención Digital", category: "Atención Digital", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Buena redacción, fluidez verbal, digitación básica y orientación a resolver solicitudes del cliente.", tip: "Enfatiza empatía, claridad al explicar y manejo de herramientas web." },
+            { title: "Vendedor de Mostrador / Ferretería o Moda", category: "Ventas", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Gusto por asesorar personas, exhibición de mercancía y apoyo en inventarios del local.", tip: "Cuenta cómo ayudas al cliente a elegir lo que necesita sin presionar." },
+            { title: "Auxiliar de Farmacia o Droguería", category: "Salud y Droguería", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Formación o experiencia en dispensación, atención al usuario y control de fechas de vencimiento.", tip: "Subraya responsabilidad, orden en estantería y trato humano." },
+            { title: "Coordinador de Punto o Supervisor de Turno", category: "Supervisión", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia liderando equipos pequeños, control de indicadores, horarios y apertura/cierre de sedes.", tip: "Menciona liderazgo cercano, resolución de problemas y control de metas." },
+            { title: "Diseñador Gráfico y Creador de Contenido", category: "Creatividad y Diseño", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Manejo de herramientas de diseño, piezas para redes sociales, flyers y apoyo en marca.", tip: "Ten listo tu portafolio o ejemplos de piezas visuales." },
+            { title: "Auxiliar de Enfermería o Cuidado Domiciliario", category: "Salud y Cuidado", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Documentación al día, toma de signos o acompañamiento responsable y trato humano.", tip: "Destaca empatía, puntualidad y registro cuidadoso." },
+            { title: "Técnico en Sistemas y Soporte TI", category: "Tecnología y Soporte", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Instalación de software, diagnóstico de equipos, redes básicas y atención a usuarios.", tip: "Indica qué sistemas operativos y fallas resuelves con mayor agilidad." },
+            { title: "Auxiliar de Recursos Humanos y Nómina", category: "Talento Humano", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Apoyo en afiliaciones, selección básica, archivo de carpetas y novedades de personal.", tip: "Resalta discreción, manejo de planillas y orden documental." },
+            { title: "Estilista, Barbero o Manicurista", category: "Belleza y Estética", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Experiencia en cortes, colorimetría, barbería o uñas/pedicure y protocolos de bioseguridad.", tip: "Muestra constancia en atención y fidelización de clientes." },
+            { title: "Analista de Inventarios y Compras", category: "Compras e Inventarios", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Control de existencias, órdenes de compra, seguimiento a proveedores y reportes en hoja de cálculo.", tip: "Destaca precisión numérica y prevención de agotados." },
+            { title: "Profesor Particular o Tutor Académico", category: "Educación y Clases", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Paciencia, claridad para explicar temas escolares o universitarios y seguimiento de avances.", tip: "Indica las materias o niveles en los que tienes mayor experiencia." },
+            { title: "Auxiliar de Laboratorio o Control de Calidad", category: "Calidad y Laboratorio", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Registro de muestras, verificación de estándares de calidad y limpieza de puestos de trabajo.", tip: "Resalta rigor en protocolos y atención al detalle." },
+            { title: "Asesor de Perfumería y Fragancias", category: "Perfumería y Belleza", law: "Monitoreo 24/7 • Verificar condiciones en portal", reqs: "Gusto por la perfumería, asesoría personalizada en fragancias, exhibición en vitrina y atención al cliente en punto o tienda.", tip: "Destaca tu facilidad para identificar notas aromáticas y recomendar perfumes según el cliente." }
+        ];
+
+        const COMPANY_PREFIXES = [
+            "Comercializadora", "Distribuciones", "Panadería y Café", "Oper Logística",
+            "Servicios Integrales", "Almacenes", "Grupo Empresarial", "Soluciones",
+            "Centro de Distribución", "Red Comercial", "Suministros", "Inversiones"
+        ];
+
+        const JOB_PORTALS = [
+            {
+                name: "CompuTrabajo",
+                buildUrl: (title, locality) =>
+                    `https://co.computrabajo.com/trabajo-de-${encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"))}-en-${encodeURIComponent(locality.toLowerCase().replace(/\s+/g, "-"))}-bogota`
+            },
+            {
+                name: "elempleo",
+                buildUrl: (title, locality) =>
+                    `https://www.elempleo.com/co/ofertas-empleo/?q=${encodeURIComponent(`${title} ${locality} Bogota`)}`
+            },
+            {
+                name: "Indeed",
+                buildUrl: (title, locality) =>
+                    `https://co.indeed.com/jobs?q=${encodeURIComponent(title)}&l=${encodeURIComponent(`${locality}, Bogota, Cundinamarca`)}`
+            },
+            {
+                name: "LinkedIn",
+                buildUrl: (title, locality) =>
+                    `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(title)}&location=${encodeURIComponent(`${locality}, Bogota, Colombia`)}`
+            },
+            {
+                name: "Magneto",
+                buildUrl: (title, locality) =>
+                    `https://www.magneto365.com/co/empleos?q=${encodeURIComponent(`${title} ${locality} Bogota`)}`
+            }
+        ];
+
+        const state = {
+            userLocation: {
+                lat: 4.6300,
+                lng: -74.1520,
+                label: "Kennedy — Portal Américas / Tintal (Bogotá)",
+                accuracyText: "Modo: Radar Bogotá",
+                isGPS: false
+            },
+            jobs: [],
+            filteredJobs: [],
+            aiMatchingIds: null,
+            lastAISearchUrl: "https://www.linkedin.com/jobs/search/?keywords=empleo&location=Bogota%2C%20Colombia",
+            activeModalJobId: null,
+            nextSeq: 1
+        };
+
+        let map = null;
+        let satelliteLayer = null;
+        let streetLayer = null;
+        let labelsLayer = null;
+        let markersLayer = null;
+        let userMarker = null;
+        let radarCircle = null;
+        let mapMode = "satellite";
+        let live247Timer = null;
+        let gpsWatchId = null;
+
+        function escapeHtml(str) {
+            return String(str || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function formatReportedSalary(salary) {
+            if (typeof salary === "number" && Number.isFinite(salary) && salary > 0) {
+                return `$${Math.round(salary).toLocaleString("es-CO")} COP (publicado)`;
+            }
+            return "Salario según publicación en portal";
+        }
+
+        function showToast(msg) {
+            const el = document.getElementById("toast");
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove("hidden");
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => el.classList.add("hidden"), 3400);
+        }
+
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLon = ((lon2 - lon1) * Math.PI) / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos((lat1 * Math.PI) / 180) *
+                Math.cos((lat2 * Math.PI) / 180) *
+                Math.sin(dLon / 2) *
+                Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function createJobForLocality(loc, roleIdx = null, customSalary = null) {
+            const seq = state.nextSeq++;
+            const idx = roleIdx !== null ? roleIdx % ROLE_TEMPLATES.length : seq % ROLE_TEMPLATES.length;
+            const tpl = ROLE_TEMPLATES[idx];
+            const jitterLat = (((seq * 17) % 21) - 10) * 0.0011;
+            const jitterLng = (((seq * 23) % 21) - 10) * 0.0011;
+            // Only keep an explicit salary if manually supplied by the user; otherwise null (no invented figures).
+            const explicitSalary = customSalary !== null && customSalary !== "" && Number(customSalary) > 0
+                ? Number(customSalary)
+                : null;
+            const company = `${COMPANY_PREFIXES[seq % COMPANY_PREFIXES.length]} ${loc.name}`;
+            const portal = JOB_PORTALS[seq % JOB_PORTALS.length];
+            const portalUrl = portal.buildUrl(tpl.title, loc.name);
+
+            return {
+                id: `job-${seq}`,
+                title: tpl.title,
+                company,
+                locality: loc.name,
+                barrio: loc.barrio,
+                category: tpl.category,
+                salary: explicitSalary,
+                law: tpl.law,
+                requirements: tpl.reqs,
+                tip: tpl.tip,
+                portalName: portal.name,
+                portalUrl,
+                contact: "",
+                lat: Number((loc.lat + jitterLat).toFixed(6)),
+                lng: Number((loc.lng + jitterLng).toFixed(6)),
+                updatedAt: Date.now() - (seq % 45) * 60000,
+                requestsCount: 0,
+                renewalsCount: 0,
+                comments: []
+            };
+        }
+
+        function seedInitialJobs() {
+            state.jobs = [];
+            state.nextSeq = 1;
+            // 500 offers across Bogotá: 25 per locality across all 20 localities
+            for (let round = 0; round < 25; round++) {
+                for (let i = 0; i < BOGOTA_LOCALITIES.length; i++) {
+                    const loc = BOGOTA_LOCALITIES[i];
+                    const roleIdx = (round * 7 + i * 3) % ROLE_TEMPLATES.length;
+                    state.jobs.push(createJobForLocality(loc, roleIdx));
+                }
+            }
+        }
+
+        function populateSelects() {
+            const locFilter = document.getElementById("filter-locality");
+            const quickLoc = document.getElementById("quick-locality-select");
+            const pubLoc = document.getElementById("pub-locality");
+            const catFilter = document.getElementById("filter-category");
+
+            BOGOTA_LOCALITIES.forEach((loc) => {
+                if (locFilter) {
+                    const o = document.createElement("option");
+                    o.value = loc.name;
+                    o.textContent = `${loc.name} (${loc.zone})`;
+                    locFilter.appendChild(o);
+                }
+                if (quickLoc) {
+                    const o = document.createElement("option");
+                    o.value = loc.name;
+                    o.textContent = `${loc.name} — ${loc.barrio}`;
+                    quickLoc.appendChild(o);
+                }
+                if (pubLoc) {
+                    const o = document.createElement("option");
+                    o.value = loc.name;
+                    o.textContent = `${loc.name} — ${loc.barrio}`;
+                    pubLoc.appendChild(o);
+                }
+            });
+
+            const categories = [...new Set(ROLE_TEMPLATES.map((r) => r.category))].sort();
+            categories.forEach((cat) => {
+                if (catFilter) {
+                    const o = document.createElement("option");
+                    o.value = cat;
+                    o.textContent = cat;
+                    catFilter.appendChild(o);
+                }
+            });
+        }
+
+        function initMap() {
+            const container = document.getElementById("satellite-map");
+            if (!container || typeof L === "undefined") return;
+
+            try {
+                if (map) {
+                    map.remove();
+                    map = null;
+                }
+                map = L.map("satellite-map", {
+                    center: [state.userLocation.lat, state.userLocation.lng],
+                    zoom: 12,
+                    zoomControl: true
+                });
+
+                satelliteLayer = L.tileLayer(
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    { maxZoom: 19, attribution: "Tiles &copy; Esri" }
+                );
+                streetLayer = L.tileLayer(
+                    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+                    { maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+                );
+                labelsLayer = L.tileLayer(
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+                    { maxZoom: 19, attribution: "Labels &copy; Esri" }
+                );
+
+                let loaded = false;
+                satelliteLayer.on("tileload", () => { loaded = true; });
+                satelliteLayer.addTo(map);
+                labelsLayer.addTo(map);
+
+                setTimeout(() => {
+                    if (!loaded && map && mapMode === "satellite") {
+                        map.removeLayer(satelliteLayer);
+                        streetLayer.addTo(map);
+                        mapMode = "street";
+                        const btn = document.getElementById("map-style-btn");
+                        if (btn) btn.textContent = "Vista: Calles Actualizadas";
+                    }
+                }, 3500);
+
+                markersLayer = L.layerGroup().addTo(map);
+                updateUserMapVisuals();
+                renderMapMarkers();
+                setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+            } catch (e) {
+                console.warn("Mapa en modo respaldo:", e);
+            }
+        }
+
+        function toggleMapStyle() {
+            if (!map) return;
+            const btn = document.getElementById("map-style-btn");
+            if (mapMode === "satellite") {
+                map.removeLayer(satelliteLayer);
+                if (labelsLayer) map.removeLayer(labelsLayer);
+                streetLayer.addTo(map);
+                mapMode = "street";
+                if (btn) btn.textContent = "Vista: Calles Actualizadas";
+            } else {
+                map.removeLayer(streetLayer);
+                satelliteLayer.addTo(map);
+                if (labelsLayer) labelsLayer.addTo(map);
+                mapMode = "satellite";
+                if (btn) btn.textContent = "Vista: Satélite + Calles";
+            }
+        }
+
+        function updateUserMapVisuals() {
+            if (!map || typeof L === "undefined") return;
+            const { lat, lng, label } = state.userLocation;
+            if (userMarker) map.removeLayer(userMarker);
+            if (radarCircle) map.removeLayer(radarCircle);
+
+            // GPS user marker and radar radius
+            userMarker = L.circleMarker([lat, lng], {
+                radius: 9,
+                color: "#fef3c7",
+                weight: 2.5,
+                fillColor: "#f59e0b",
+                fillOpacity: 0.95
+            }).addTo(map).bindPopup(`<b>Tu ubicación GPS activa</b><br/>${escapeHtml(label)}`);
+
+            radarCircle = L.circle([lat, lng], {
+                radius: 3500,
+                color: "#fbbf24",
+                weight: 1.5,
+                dashArray: "5, 5",
+                fillColor: "#f59e0b",
+                fillOpacity: 0.08
+            }).addTo(map);
+        }
+
+        function centerMapOnUser() {
+            if (map) {
+                map.setView([state.userLocation.lat, state.userLocation.lng], 13);
+                map.invalidateSize();
+            }
+        }
+
+        function openGoogleMapsAtLocation() {
+            const { lat, lng } = state.userLocation;
+            window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank", "noopener,noreferrer");
+        }
+
+        function findNearestLocality(lat, lng) {
+            let best = BOGOTA_LOCALITIES[0];
+            let bestDist = Infinity;
+            for (const loc of BOGOTA_LOCALITIES) {
+                const d = haversineKm(lat, lng, loc.lat, loc.lng);
+                if (d < bestDist) {
+                    bestDist = d;
+                    best = loc;
+                }
+            }
+            return best;
+        }
+
+        function selectLocalityFromRadar(name) {
+            if (!name) return;
+            const loc = BOGOTA_LOCALITIES.find((l) => l.name === name);
+            if (!loc) return;
+            state.userLocation = {
+                lat: loc.lat,
+                lng: loc.lng,
+                label: `${loc.name} (${loc.barrio}) — Bogotá`,
+                accuracyText: `Radar ${loc.name}`,
+                isGPS: false
+            };
+            document.getElementById("current-location-text").textContent = state.userLocation.label;
+            document.getElementById("gps-accuracy-badge").textContent = state.userLocation.accuracyText;
+            document.getElementById("location-detail-text").textContent =
+                `Coordenadas: ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)} • Zona ${loc.zone} de Bogotá.`;
+            updateUserMapVisuals();
+            if (map) map.setView([loc.lat, loc.lng], 13);
+            onFilterChange();
+            renderInitialAIRecommendations();
+            showToast(`Radar centrado en ${loc.name}.`);
+        }
+
+        async function checkLocationPermissionUI() {
+            const statusEl = document.getElementById("gps-permission-status");
+            const btnLabel = document.getElementById("gps-btn-label");
+            if (!statusEl) return;
+
+            if (!navigator.geolocation) {
+                statusEl.textContent = "Permiso GPS: Usa selector de localidad";
+                return;
+            }
+
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const perm = await navigator.permissions.query({ name: "geolocation" });
+                    const paint = (s) => {
+                        if (s === "granted") {
+                            statusEl.textContent = "Permiso GPS: Concedido (En vivo)";
+                            statusEl.className = "text-[11px] px-2.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-600/50 text-emerald-200";
+                            if (btnLabel) btnLabel.textContent = "Actualizar GPS exacto";
+                            startContinuousGPSTracking();
+                        } else if (s === "denied") {
+                            statusEl.textContent = "Permiso GPS: Bloqueado (usa selector)";
+                            statusEl.className = "text-[11px] px-2.5 py-1.5 rounded-xl bg-amber-950/70 border border-amber-600/50 text-amber-200";
+                            if (btnLabel) btnLabel.textContent = "Reintentar GPS";
+                        } else {
+                            statusEl.textContent = "Permiso GPS: Listo para activar";
+                            statusEl.className = "text-[11px] px-2.5 py-1.5 rounded-xl bg-piedra-800 border border-piedra-700 text-amber-200";
+                            if (btnLabel) btnLabel.textContent = "Activar / Pedir permiso GPS";
+                        }
+                    };
+                    paint(perm.state);
+                    perm.onchange = () => paint(perm.state);
+                    return;
+                } catch (_) {}
+            }
+            statusEl.textContent = "Permiso GPS: Disponible para solicitar";
+        }
+
+        function applyGPSPosition(pos, announce = false) {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const nearest = findNearestLocality(lat, lng);
+            state.userLocation = {
+                lat,
+                lng,
+                label: `${nearest.name} (${nearest.barrio}) — GPS En Vivo`,
+                accuracyText: `GPS ±${Math.round(pos.coords.accuracy || 15)}m`,
+                isGPS: true
+            };
+            const locTextEl = document.getElementById("current-location-text");
+            const accBadgeEl = document.getElementById("gps-accuracy-badge");
+            const detTextEl = document.getElementById("location-detail-text");
+            if (locTextEl) locTextEl.textContent = state.userLocation.label;
+            if (accBadgeEl) accBadgeEl.textContent = state.userLocation.accuracyText;
+            if (detTextEl) {
+                detTextEl.textContent = `Coordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)} • Localidad más cercana: ${nearest.name}.`;
+            }
+            updateUserMapVisuals();
+            if (map) map.setView([lat, lng], Math.max(map.getZoom(), 13));
+            onFilterChange();
+            if (announce) {
+                renderInitialAIRecommendations();
+                showToast(`Radar actualizado en ${nearest.name}.`);
+            }
+        }
+
+        function startContinuousGPSTracking() {
+            if (!navigator.geolocation || gpsWatchId !== null) return;
+            try {
+                gpsWatchId = navigator.geolocation.watchPosition(
+                    (pos) => applyGPSPosition(pos, false),
+                    () => {},
+                    { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+                );
+            } catch (_) {}
+        }
+
+        function locateUserExact() {
+            if (!navigator.geolocation) {
+                showToast("Geolocalización no soportada aquí. Usa el selector de localidad.");
+                return;
+            }
+            showToast("Solicitando permiso y ubicación GPS...");
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    applyGPSPosition(pos, true);
+                    checkLocationPermissionUI();
+                },
+                (err) => {
+                    checkLocationPermissionUI();
+                    if (err.code === 1) {
+                        showToast("El permiso de ubicación está bloqueado en el navegador. Elige tu localidad en el selector.");
+                    } else {
+                        showToast("No se pudo leer señal GPS. Usa el selector rápido de localidad.");
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 9000, maximumAge: 5000 }
+            );
+        }
+
+        function onFilterChange() {
+            if (!Array.isArray(state.jobs) || state.jobs.length === 0) {
+                seedInitialJobs();
+            }
+
+            const keyword = (document.getElementById("filter-keyword")?.value || "").trim().toLowerCase();
+            const locality = document.getElementById("filter-locality")?.value || "TODAS";
+            const category = document.getElementById("filter-category")?.value || "TODAS";
+            const sortBy = document.getElementById("filter-sort")?.value || "distance";
+
+            const hasStrictAIFilter = Array.isArray(state.aiMatchingIds);
+
+            let list = state.jobs
+                .map((j) => ({
+                    ...j,
+                    distanceKm: haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng)
+                }))
+                .filter((j) => {
+                    if (hasStrictAIFilter && !state.aiMatchingIds.includes(j.id)) {
+                        return false;
+                    }
+                    if (locality !== "TODAS" && j.locality !== locality) return false;
+                    if (category !== "TODAS" && j.category !== category) return false;
+                    if (keyword) {
+                        const txt = `${j.title} ${j.company} ${j.locality} ${j.barrio} ${j.category} ${j.requirements}`.toLowerCase();
+                        if (!txt.includes(keyword)) return false;
+                    }
+                    return true;
+                });
+
+            if (list.length === 0 && !hasStrictAIFilter) {
+                list = state.jobs.map((j) => ({
+                    ...j,
+                    distanceKm: haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng)
+                }));
+            }
+
+            list.sort((a, b) => {
+                if (sortBy === "recent_24_7") return (b.updatedAt || 0) - (a.updatedAt || 0);
+                if (sortBy === "salary_reported") return (b.salary || 0) - (a.salary || 0);
+                return a.distanceKm - b.distanceKm;
+            });
+
+            state.filteredJobs = list;
+            renderJobsGrid();
+            renderMapMarkers();
+        }
+
+        function renderMapMarkers() {
+            const pinBadge = document.getElementById("map-pins-count");
+            if (!map || typeof L === "undefined") return;
+            if (!markersLayer) {
+                markersLayer = L.layerGroup().addTo(map);
+            }
+            markersLayer.clearLayers();
+
+            const hasStrictAIFilter = Array.isArray(state.aiMatchingIds);
+            const sourceJobs = hasStrictAIFilter
+                ? state.filteredJobs
+                : (state.filteredJobs.length > 0 ? state.filteredJobs : state.jobs);
+
+            // Show nearby portal-linked markers (LinkedIn, CompuTrabajo, elempleo, Indeed, Magneto) on the GPS map
+            const rankedForMap = [...sourceJobs]
+                .map((j) => ({
+                    ...j,
+                    distanceKm: typeof j.distanceKm === "number"
+                        ? j.distanceKm
+                        : haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng)
+                }))
+                .sort((a, b) => a.distanceKm - b.distanceKm)
+                .slice(0, 36);
+
+            for (const job of rankedForMap) {
+                if (typeof job.lat !== "number" || typeof job.lng !== "number") continue;
+                const portalName = job.portalName || "CompuTrabajo";
+                const portalUrl = job.portalUrl || JOB_PORTALS[0].buildUrl(job.title, job.locality);
+                const pin = L.circleMarker([job.lat, job.lng], {
+                    radius: 6,
+                    color: "#d1fae5",
+                    weight: 1.5,
+                    fillColor: "#10b981",
+                    fillOpacity: 0.88
+                });
+
+                pin.bindPopup(`
+                    <div style="font-size:12px;line-height:1.35;color:#111827;">
+                        <strong>${escapeHtml(job.title)}</strong><br/>
+                        <span>${escapeHtml(job.locality)} • ${job.distanceKm.toFixed(1)} km de tu GPS</span><br/>
+                        <span>Portal: <b>${escapeHtml(portalName)}</b></span><br/>
+                        <a href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener noreferrer" style="color:#047857;font-weight:700;text-decoration:underline;">Abrir en ${escapeHtml(portalName)}</a>
+                    </div>
+                `);
+                pin.addTo(markersLayer);
+            }
+
+            if (pinBadge) {
+                pinBadge.textContent = `${rankedForMap.length} accesos GPS en portales`;
+            }
+        }
+
+        function renderJobsGrid() {
+            const grid = document.getElementById("jobs-grid");
+            const countEl = document.getElementById("jobs-count-label");
+            if (!grid) return;
+
+            const hasStrictAIFilter = Array.isArray(state.aiMatchingIds);
+            const jobs = hasStrictAIFilter
+                ? state.filteredJobs
+                : (state.filteredJobs.length > 0 ? state.filteredJobs : state.jobs);
+
+            if (countEl) countEl.textContent = `${jobs.length} vacantes activas`;
+            const nowTime = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+            const ticker = document.getElementById("live-ticker");
+            if (ticker) ticker.textContent = `Radar GPS 24/7 activo (${nowTime}) • ${state.jobs.length} vacantes en Bogotá • Portales en vivo`;
+
+            if (jobs.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-piedra-800/90 border border-piedra-700 rounded-2xl p-5 text-center space-y-2">
+                        <p class="text-sm font-bold text-amber-300">No hay vacantes internas exactas para ese filtro, pero puedes abrir la búsqueda directa arriba en los enlaces de IA o Google Maps.</p>
+                        <button type="button" onclick="clearAIFilter()" class="px-3.5 py-1.5 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 text-xs font-semibold cursor-pointer">
+                            Ver todas las vacantes
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = jobs.map((job) => {
+                const salaryStr = formatReportedSalary(job.salary);
+                const distStr = typeof job.distanceKm === "number" ? `${job.distanceKm.toFixed(1)} km` : "Bogotá";
+                const gpsPortalUrl = typeof job.portalUrl === "string" && job.portalUrl
+                    ? job.portalUrl
+                    : JOB_PORTALS[0].buildUrl(job.title, job.locality);
+                const portalLabel = escapeHtml(job.portalName || "CompuTrabajo");
+                const contactLabel = job.contact ? `<span class="text-[11px] text-amber-200">Contacto: ${escapeHtml(job.contact)}</span>` : "";
+
+                return `
+                    <article class="bg-piedra-800/90 border border-piedra-700 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-amber-500/50 transition">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-cafe-800 text-amber-200 font-semibold">${escapeHtml(job.category)}</span>
+                                <span class="text-[11px] font-semibold text-amber-300">${escapeHtml(distStr)}</span>
+                            </div>
+                            <h3 class="text-sm sm:text-base font-bold text-piedra-50">${escapeHtml(job.title)}</h3>
+                            <p class="text-xs text-piedra-300">
+                                <span class="text-amber-200 font-semibold">${escapeHtml(job.company)}</span> • ${escapeHtml(job.locality)} (${escapeHtml(job.barrio)})
+                            </p>
+                            <div class="text-xs sm:text-sm font-bold text-emerald-300">${escapeHtml(salaryStr)}</div>
+                            <p class="text-xs text-piedra-300 line-clamp-2">${escapeHtml(job.requirements)}</p>
+                        </div>
+
+                        <div class="pt-2.5 border-t border-piedra-700/80 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="quickRequestJob('${job.id}')" class="px-2.5 py-1.5 rounded-xl bg-cafe-700 hover:bg-cafe-800 text-piedra-50 text-xs font-semibold cursor-pointer">
+                                        Pedir empleo (${job.requestsCount})
+                                    </button>
+                                    <button type="button" onclick="quickRenewJob('${job.id}')" class="px-2.5 py-1.5 rounded-xl bg-piedra-900 hover:bg-piedra-700 text-amber-200 border border-piedra-700 text-xs font-semibold cursor-pointer">
+                                        Renovar (${job.renewalsCount})
+                                    </button>
+                                </div>
+                                <button type="button" onclick="openJobDetail('${job.id}')" class="text-xs font-semibold text-amber-300 hover:underline cursor-pointer">
+                                    Detalle / Cupo
+                                </button>
+                            </div>
+                            <div class="pt-2 border-t border-piedra-700/60 flex items-center justify-between gap-2 text-xs">
+                                <span class="text-emerald-300 font-bold">GPS • ${portalLabel} (${escapeHtml(job.locality)})</span>
+                                <a href="${gpsPortalUrl}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-emerald-900/70 hover:bg-emerald-800 text-emerald-200 border border-emerald-600/40 font-semibold">Abrir en ${portalLabel}</a>
+                            </div>
+                            ${contactLabel}
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
+
+        // Clicking "Pedir empleo" or "Renovar" keeps the job active; removal only happens if "ya no hay cupo" is reported.
+        function quickRequestJob(id) {
+            const job = state.jobs.find((j) => j.id === id);
+            if (!job) return;
+            job.requestsCount += 1;
+            renderJobsGrid();
+            showToast(`Solicitud registrada para "${job.title}". La vacante sigue visible hasta que se reporte que ya no hay cupo.`);
+        }
+
+        function quickRenewJob(id) {
+            const job = state.jobs.find((j) => j.id === id);
+            if (!job) return;
+            job.renewalsCount += 1;
+            renderJobsGrid();
+            showToast(`Vacante "${job.title}" renovada. Sigue activa hasta reportar que ya no hay cupo.`);
+        }
+
+        function openJobDetail(id) {
+            const job = state.jobs.find((j) => j.id === id);
+            if (!job) return;
+            state.activeModalJobId = id;
+            const dist = haversineKm(state.userLocation.lat, state.userLocation.lng, job.lat, job.lng);
+
+            document.getElementById("modal-category").textContent = job.category;
+            document.getElementById("modal-title").textContent = job.title;
+            document.getElementById("modal-company-loc").textContent = `${job.company} • ${job.locality} (${job.barrio})`;
+            document.getElementById("modal-salary").textContent = formatReportedSalary(job.salary);
+            document.getElementById("modal-distance").textContent = `${dist.toFixed(1)} km desde tu GPS`;
+            document.getElementById("modal-law").textContent = job.law;
+            document.getElementById("modal-reqs").textContent = job.requirements;
+            document.getElementById("modal-action-status").textContent =
+                `Pedidos: ${job.requestsCount} • Renovaciones: ${job.renewalsCount}`;
+
+            const contactBox = document.getElementById("modal-contact-box");
+            if (job.contact) {
+                contactBox.classList.remove("hidden");
+                document.getElementById("modal-contact").textContent = job.contact;
+            } else {
+                contactBox.classList.add("hidden");
+            }
+
+            renderModalComments(job);
+            const modal = document.getElementById("job-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+        window.openJobDetail = openJobDetail;
+
+        function closeJobModal() {
+            state.activeModalJobId = null;
+            const modal = document.getElementById("job-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function handleModalRequestJob() {
+            if (!state.activeModalJobId) return;
+            quickRequestJob(state.activeModalJobId);
+            const job = state.jobs.find((j) => j.id === state.activeModalJobId);
+            if (job) {
+                document.getElementById("modal-action-status").textContent =
+                    `Pedidos: ${job.requestsCount} • Renovaciones: ${job.renewalsCount}`;
+            }
+        }
+
+        function handleModalRenewJob() {
+            if (!state.activeModalJobId) return;
+            quickRenewJob(state.activeModalJobId);
+            const job = state.jobs.find((j) => j.id === state.activeModalJobId);
+            if (job) {
+                document.getElementById("modal-action-status").textContent =
+                    `Pedidos: ${job.requestsCount} • Renovaciones: ${job.renewalsCount}`;
+            }
+        }
+
+        function renderModalComments(job) {
+            const list = document.getElementById("modal-comments-list");
+            if (!list) return;
+            if (!job.comments || job.comments.length === 0) {
+                list.innerHTML = `<p class="text-piedra-400">Sin avisos aún. Si ya se completó el cupo, escribe "ya no hay cupo".</p>`;
+                return;
+            }
+            list.innerHTML = job.comments.map((c) => `<p class="bg-piedra-800 px-3 py-1.5 rounded-lg">${escapeHtml(c)}</p>`).join("");
+        }
+
+        function submitCupoComment() {
+            const input = document.getElementById("modal-comment-input");
+            const job = state.jobs.find((j) => j.id === state.activeModalJobId);
+            if (!input || !job) return;
+            const text = input.value.trim();
+            if (!text) return;
+
+            const normalized = text.toLowerCase();
+            if (normalized.includes("ya no hay cupo") || normalized.includes("no hay cupo") || normalized.includes("cupo lleno")) {
+                const loc = BOGOTA_LOCALITIES.find((l) => l.name === job.locality) || BOGOTA_LOCALITIES[0];
+                const removedId = job.id;
+                state.jobs = state.jobs.filter((j) => j.id !== removedId);
+                state.sharedJobIds = (state.sharedJobIds || []).filter((id) => id !== removedId);
+                state.jobs.push(createJobForLocality(loc));
+                if (window.__sharedJobsStore && typeof window.__sharedJobsStore.removeOffer === "function") {
+                    window.__sharedJobsStore.removeOffer(removedId);
+                }
+                input.value = "";
+                closeJobModal();
+                onFilterChange();
+                showToast("Se reportó que ya no hay cupo: vacante retirada y reemplazo agregado al radar.");
+                return;
+            }
+
+            job.comments.push(text);
+            if (state.sharedJobIds && state.sharedJobIds.includes(job.id) && window.__sharedJobsStore) {
+                window.__sharedJobsStore.publishOffer(job);
+            }
+            input.value = "";
+            renderModalComments(job);
+            showToast("Aviso guardado. La vacante sigue activa.");
+        }
+
+        function openPublishModal() {
+            const m = document.getElementById("publish-modal");
+            m.classList.remove("hidden");
+            m.classList.add("flex");
+        }
+
+        function closePublishModal() {
+            const m = document.getElementById("publish-modal");
+            m.classList.add("hidden");
+            m.classList.remove("flex");
+        }
+
+        function handlePublishOffer(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            try {
+                const title = (document.getElementById("pub-title")?.value || "").trim();
+                const company = (document.getElementById("pub-company")?.value || "").trim();
+                const localityName = document.getElementById("pub-locality")?.value || "Kennedy";
+                const rawSalaryStr = (document.getElementById("pub-salary")?.value || "").trim();
+                const parsedSalary = rawSalaryStr !== "" && Number(rawSalaryStr) > 0 ? Number(rawSalaryStr) : null;
+                const contactInput = (document.getElementById("pub-contact")?.value || "").trim();
+                const reqsInput = (document.getElementById("pub-reqs")?.value || "").trim();
+
+                if (!title || !company) {
+                    showToast("Completa el cargo y el nombre de la empresa.");
+                    return;
+                }
+
+                const loc = BOGOTA_LOCALITIES.find((l) => l.name === localityName) || BOGOTA_LOCALITIES[7];
+                const newJob = createJobForLocality(loc, null, parsedSalary);
+                newJob.title = title;
+                newJob.company = company;
+                newJob.updatedAt = Date.now();
+                newJob.portalUrl = JOB_PORTALS[0].buildUrl(title, loc.name);
+                newJob.portalName = JOB_PORTALS[0].name;
+                if (reqsInput) newJob.requirements = reqsInput;
+
+                if (contactInput) {
+                    newJob.contact = contactInput;
+                }
+
+                state.jobs.unshift(newJob);
+                state.sharedJobIds = state.sharedJobIds || [];
+                state.sharedJobIds.unshift(newJob.id);
+                if (window.__sharedJobsStore && typeof window.__sharedJobsStore.publishOffer === "function") {
+                    window.__sharedJobsStore.publishOffer(newJob);
+                }
+                state.aiMatchingIds = null;
+                closePublishModal();
+                if (e && e.target && typeof e.target.reset === "function") {
+                    e.target.reset();
+                }
+                onFilterChange();
+                showToast(`Vacante "${title}" publicada en ${loc.name} para todos los usuarios.`);
+            } catch (err) {
+                console.error("Error al publicar oferta:", err);
+                showToast("No se pudo publicar la oferta. Revisa los campos.");
+            }
+        }
+
+        function syncSharedOffers(remoteOffers) {
+            if (!Array.isArray(remoteOffers)) return;
+            if (!Array.isArray(state.jobs) || state.jobs.length === 0) {
+                seedInitialJobs();
+            }
+            const prevSharedSet = new Set(state.sharedJobIds || []);
+            const nonSharedJobs = state.jobs.filter((j) => !prevSharedSet.has(j.id));
+            const sortedRemote = [...remoteOffers].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            state.sharedJobIds = sortedRemote.map((r) => r.id);
+            state.jobs = [...sortedRemote, ...nonSharedJobs];
+            onFilterChange();
+        }
+        window.syncSharedOffers = syncSharedOffers;
+
+        function renderInitialAIRecommendations() {
+            const box = document.getElementById("ai-response-box");
+            if (!box || !Array.isArray(state.jobs) || state.jobs.length === 0) return;
+
+            const nearest = findNearestLocality(state.userLocation.lat, state.userLocation.lng);
+            const nearbyRanked = state.jobs
+                .map((j) => ({
+                    ...j,
+                    distanceKm: haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng)
+                }))
+                .sort((a, b) => a.distanceKm - b.distanceKm);
+
+            const picks = [];
+            const seenCats = new Set();
+            for (const item of nearbyRanked) {
+                if (!seenCats.has(item.category)) {
+                    seenCats.add(item.category);
+                    picks.push(item);
+                    if (picks.length >= 4) break;
+                }
+            }
+
+            box.innerHTML = `
+                <p class="font-bold text-amber-300">Recomendaciones iniciales cerca de ${escapeHtml(nearest.name)} (24/7):</p>
+                <p class="text-piedra-300">
+                    Estas son opciones recomendadas según tu radar actual. Escribe cualquier cargo, duda o tema y te respondo al instante:
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-amber-100">
+                    ${picks.map((s) => `<li><strong>${escapeHtml(s.title)}</strong> — ${escapeHtml(s.locality)} (${s.distanceKm.toFixed(1)} km) • <a href="${escapeHtml(s.portalUrl || "")}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-300">${escapeHtml(s.portalName || "CompuTrabajo")}</a></li>`).join("")}
+                </ul>
+            `;
+        }
+
+        function clearAIFilter() {
+            state.aiMatchingIds = null;
+            const inp = document.getElementById("ai-prompt-input");
+            if (inp) inp.value = "";
+            onFilterChange();
+            renderInitialAIRecommendations();
+        }
+
+        function quickAI(text) {
+            const inp = document.getElementById("ai-prompt-input");
+            if (inp) inp.value = text;
+            runAssistantQuery();
+        }
+
+        function buildGeneralAIAdvice(rawText) {
+            return `Búsqueda enfocada en "${escapeHtml(rawText)}": filtra solo coincidencias del tema y zona pedidos, abre enlaces directos en portales y sugiere negocios/puntos en Google Maps fuera de las bolsas de empleo tradicionales.`;
+        }
+
+        function detectTargetLocality(queryLower) {
+            for (const loc of BOGOTA_LOCALITIES) {
+                const locL = loc.name.toLowerCase();
+                const barrioL = loc.barrio.toLowerCase();
+                if (queryLower.includes(locL) || barrioL.split("/").some((b) => queryLower.includes(b.trim().toLowerCase()))) {
+                    return loc.name;
+                }
+            }
+            if (state.userLocation && state.userLocation.isGPS) {
+                const nearest = findNearestLocality(state.userLocation.lat, state.userLocation.lng);
+                return nearest ? nearest.name : "Bogotá";
+            }
+            return "Bogotá";
+        }
+
+        function extractSearchTopic(rawText) {
+            const cleaned = String(rawText || "")
+                .replace(/\b(quiero|busco|necesito|dame|ver|un|una|unos|unas|trabajo|empleo|vacante|puesto|de|del|en|por|para|cerca|zona|localidad|laia|por favor)\b/gi, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+            return cleaned || "empleo";
+        }
+
+        function buildPortalSearchLinks(topic, zoneName, includeBogotaWide = true) {
+            const safeTopic = (topic || "empleo").trim();
+            const safeZone = (zoneName || "Bogotá").trim();
+            const zoneQuery = `${safeTopic} ${safeZone} Bogota`.trim();
+            const bogotaQuery = `${safeTopic} Bogota`.trim();
+            const activeQuery = includeBogotaWide && safeZone.toLowerCase() !== "bogotá"
+                ? `${safeTopic} ${safeZone} Bogota`
+                : bogotaQuery;
+
+            return [
+                {
+                    name: `LinkedIn (${safeZone})`,
+                    url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(safeTopic)}&location=${encodeURIComponent(`${safeZone}, Bogota, Colombia`)}`
+                },
+                {
+                    name: "CompuTrabajo (Bogotá)",
+                    url: `https://co.computrabajo.com/empleos-en-bogota-dc?q=${encodeURIComponent(activeQuery)}`
+                },
+                {
+                    name: `elempleo (${safeZone})`,
+                    url: `https://www.elempleo.com/co/ofertas-empleo/?q=${encodeURIComponent(zoneQuery)}`
+                },
+                {
+                    name: `Indeed (${safeZone})`,
+                    url: `https://co.indeed.com/jobs?q=${encodeURIComponent(safeTopic)}&l=${encodeURIComponent(`${safeZone}, Bogota, Cundinamarca`)}`
+                },
+                {
+                    name: `Magneto (${safeZone})`,
+                    url: `https://www.magneto365.com/co/empleos?q=${encodeURIComponent(zoneQuery)}`
+                },
+                {
+                    name: `Google Maps (${safeZone})`,
+                    url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${safeTopic} ${safeZone} Bogota`)}`
+                }
+            ];
+        }
+
+        function getRoleRequirementsForTopic(topicLower, matchedJobs) {
+            if (matchedJobs && matchedJobs.length > 0 && matchedJobs[0].requirements) {
+                return matchedJobs[0].requirements;
+            }
+            const tplMatch = ROLE_TEMPLATES.find((r) => {
+                const tL = r.title.toLowerCase();
+                const cL = r.category.toLowerCase();
+                return topicLower.includes(cL) || tL.includes(topicLower) || topicLower.split(/\s+/).some((w) => w.length >= 4 && (tL.includes(w) || cL.includes(w)));
+            });
+            if (tplMatch) return tplMatch.requirements;
+            return "Hojas de vida al día, buena disposición para atención o ejecución del rol, disponibilidad según turno o sede en Bogotá y claridad en los requisitos específicos que pida cada vacante en el portal.";
+        }
+
+        function openExternalSearchPage(url) {
+            if (!url) return false;
+            state.lastAISearchUrl = url;
+            const win = window.open(url, "_blank", "noopener,noreferrer");
+            return Boolean(win);
+        }
+
+        function confirmAndOpenAISearchPage(customUrl = null) {
+            const targetUrl = customUrl || state.lastAISearchUrl;
+            if (!targetUrl) {
+                showToast("Primero escribe qué trabajo quieres buscar para preparar el enlace.");
+                return;
+            }
+            const opened = openExternalSearchPage(targetUrl);
+            if (!opened) {
+                showToast("Tu navegador bloqueó la nueva pestaña. Usa los enlaces directos en el panel de Laia.");
+            }
+        }
+
+        function openPrimaryAISearchPage() {
+            confirmAndOpenAISearchPage(state.lastAISearchUrl);
+        }
+
+        function getGoogleMapsAlternatives(topic, zoneName) {
+            const safeTopic = (topic || "negocio").trim();
+            const safeZone = (zoneName || "Bogotá").trim();
+            const lat = state.userLocation?.lat || 4.6300;
+            const lng = state.userLocation?.lng || -74.1520;
+
+            return [
+                {
+                    label: `Perfumerías, tiendas y locales de "${safeTopic}" en ${safeZone} (Google Maps)`,
+                    url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${safeTopic} en ${safeZone} Bogota`)}`
+                },
+                {
+                    label: `Comercios y locales cerca de tu GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+                    url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${safeTopic} cerca de ${lat.toFixed(5)},${lng.toFixed(5)}`)}`
+                },
+                {
+                    label: `Centros comerciales y zonas de tiendas en ${safeZone}`,
+                    url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`centros comerciales tiendas ${safeZone} Bogota`)}`
+                }
+            ];
+        }
+
+        function renderInitialAIRecommendations() {
+            const box = document.getElementById("ai-response-box");
+            if (!box || !Array.isArray(state.jobs) || state.jobs.length === 0) return;
+
+            const nearest = findNearestLocality(state.userLocation.lat, state.userLocation.lng);
+            const zoneName = nearest ? nearest.name : "Bogotá";
+            const defaultTopic = "empleo";
+            const links = buildPortalSearchLinks(defaultTopic, zoneName);
+            state.lastAISearchUrl = links[0].url;
+
+            const nearbyOffers = state.jobs
+                .map((j) => ({
+                    ...j,
+                    distanceKm: haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng)
+                }))
+                .sort((a, b) => a.distanceKm - b.distanceKm)
+                .slice(0, 4);
+
+            box.innerHTML = `
+                <p class="font-bold text-amber-300">Laia — Recomendaciones cercanas a ${escapeHtml(zoneName)} (24/7):</p>
+                <p class="text-piedra-300">
+                    Te priorizo opciones cercanas a tu ubicación, y si buscas otra cosa también te la traigo. No abro páginas sin preguntarte: elige cuál quieres abrir:
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-amber-100">
+                    ${nearbyOffers.map((s) => `<li><strong>${escapeHtml(s.title)}</strong> — ${escapeHtml(s.locality)} (${s.distanceKm.toFixed(1)} km) • <a href="${escapeHtml(s.portalUrl || links[0].url)}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-300">${escapeHtml(s.portalName || "LinkedIn")}</a></li>`).join("")}
+                </ul>
+                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                    <button type="button" onclick="confirmAndOpenAISearchPage('${escapeHtml(links[0].url)}')" class="px-2.5 py-1 rounded-lg bg-cafe-700 hover:bg-cafe-800 text-piedra-50 font-semibold cursor-pointer">
+                        ¿Quieres abrir ${escapeHtml(links[0].name)} en ${escapeHtml(zoneName)}?
+                    </button>
+                    ${links.slice(1).map((lk) => `<a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener noreferrer" onclick="state.lastAISearchUrl='${escapeHtml(lk.url)}'" class="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-600/40 font-semibold">${escapeHtml(lk.name)}</a>`).join("")}
+                </div>
+            `;
+        }
+
+        // Single authoritative AI search handler: prioritizes nearby matches, supports any requested topic/zone, and asks before opening external pages.
+        function runAssistantQuery() {
+            const inp = document.getElementById("ai-prompt-input");
+            const box = document.getElementById("ai-response-box");
+            if (!inp || !box) return;
+
+            const rawText = inp.value.trim();
+            const q = rawText.toLowerCase();
+            if (!q) {
+                clearAIFilter();
+                return;
+            }
+
+            const nearestGPSZone = findNearestLocality(state.userLocation.lat, state.userLocation.lng);
+            const explicitZoneMentioned = BOGOTA_LOCALITIES.some((loc) =>
+                q.includes(loc.name.toLowerCase()) ||
+                loc.barrio.toLowerCase().split("/").some((b) => q.includes(b.trim().toLowerCase()))
+            );
+            const targetZone = explicitZoneMentioned
+                ? detectTargetLocality(q)
+                : (nearestGPSZone ? nearestGPSZone.name : "Bogotá");
+
+            const searchTopic = extractSearchTopic(rawText);
+            const topicLower = searchTopic.toLowerCase();
+            const portalLinks = buildPortalSearchLinks(searchTopic, targetZone);
+            const mapsAlternatives = getGoogleMapsAlternatives(searchTopic, targetZone);
+            state.lastAISearchUrl = portalLinks[0].url;
+
+            const stopWords = new Set([
+                "para", "como", "que", "con", "los", "las", "del", "por", "una", "uno",
+                "empleo", "trabajo", "busco", "quiero", "donde", "hay", "de", "en", "y",
+                "a", "un", "el", "la", "zona", "cerca", "necesito", "vacante", "puesto",
+                "favor", "dame", "ver", "laia", "otra", "cosa", "algo"
+            ]);
+            const rawTokens = topicLower
+                .replace(/[^\p{L}\p{N}\s]/gu, " ")
+                .split(/\s+/)
+                .filter((w) => w.length >= 2 && !stopWords.has(w));
+
+            const expandedTokens = new Set(rawTokens);
+            for (const tk of rawTokens) {
+                if (tk.includes("perfum") || tk.includes("fraganc") || tk.includes("aroma") || tk.includes("locion")) {
+                    expandedTokens.add("perfum");
+                    expandedTokens.add("fragancia");
+                    expandedTokens.add("belleza");
+                    expandedTokens.add("ventas");
+                }
+            }
+            const tokens = [...expandedTokens];
+
+            const scoredMatches = state.jobs
+                .map((j) => {
+                    const distKm = haversineKm(state.userLocation.lat, state.userLocation.lng, j.lat, j.lng);
+                    let score = 0;
+                    const titleL = j.title.toLowerCase();
+                    const catL = j.category.toLowerCase();
+                    const locL = j.locality.toLowerCase();
+                    const barrioL = j.barrio.toLowerCase();
+                    const reqL = j.requirements.toLowerCase();
+                    const compL = j.company.toLowerCase();
+                    const zoneMatch = locL === targetZone.toLowerCase();
+
+                    const topicMatched =
+                        tokens.length === 0 ||
+                        (topicLower.length >= 2 && (
+                            titleL.includes(topicLower) ||
+                            catL.includes(topicLower) ||
+                            reqL.includes(topicLower) ||
+                            compL.includes(topicLower)
+                        )) ||
+                        tokens.some((tk) =>
+                            titleL.includes(tk) ||
+                            catL.includes(tk) ||
+                            reqL.includes(tk) ||
+                            compL.includes(tk)
+                        );
+
+                    if (tokens.length > 0 && !topicMatched) {
+                        return { job: j, score: 0, zoneMatch, distKm };
+                    }
+
+                    if (topicMatched) score += 10;
+                    if (zoneMatch) score += explicitZoneMentioned ? 8 : 5;
+                    if (distKm <= 4) score += 4;
+                    else if (distKm <= 8) score += 2;
+                    if (locL.includes(topicLower) || barrioL.includes(topicLower)) score += 3;
+
+                    for (const tk of tokens) {
+                        if (titleL.includes(tk)) score += 5;
+                        if (catL.includes(tk)) score += 4;
+                        if (reqL.includes(tk)) score += 2;
+                    }
+
+                    return { job: j, score, zoneMatch, distKm };
+                })
+                .filter((item) => item.score > 0)
+                .sort((a, b) => {
+                    if (explicitZoneMentioned && a.zoneMatch !== b.zoneMatch) {
+                        return b.zoneMatch ? 1 : -1;
+                    }
+                    if (Math.abs(b.score - a.score) >= 4) {
+                        return b.score - a.score;
+                    }
+                    return a.distKm - b.distKm;
+                });
+
+            const matchedJobs = scoredMatches.slice(0, 15).map((m) => ({ ...m.job, distanceKm: m.distKm }));
+            state.aiMatchingIds = matchedJobs.map((m) => m.id);
+            onFilterChange();
+
+            const generalAdvice = buildGeneralAIAdvice(rawText);
+            const summaryItems = matchedJobs.slice(0, 5);
+            const requiredForRole = getRoleRequirementsForTopic(topicLower, matchedJobs);
+
+            box.innerHTML = `
+                <p class="font-bold text-amber-300">Laia buscó "${escapeHtml(searchTopic)}" con enfoque en ${escapeHtml(targetZone)} y todo Bogotá:</p>
+                <p class="text-piedra-200">${generalAdvice}</p>
+                <div class="bg-piedra-950/70 border border-piedra-700 rounded-xl p-2.5 space-y-1">
+                    <p class="text-[11px] font-bold text-amber-200">Lo que necesitas para este trabajo (${escapeHtml(searchTopic)}):</p>
+                    <p class="text-xs text-piedra-200 leading-relaxed">${escapeHtml(requiredForRole)}</p>
+                </div>
+                <div class="bg-piedra-800/90 border border-amber-500/30 rounded-xl p-2.5 space-y-2">
+                    <p class="text-amber-200 font-semibold">
+                        ¿Quieres abrir la búsqueda especificando "${escapeHtml(searchTopic)}" y la zona (${escapeHtml(targetZone)} / Bogotá)? Elige el portal:
+                    </p>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${portalLinks.map((lk) => `<button type="button" onclick="confirmAndOpenAISearchPage('${escapeHtml(lk.url)}')" class="px-2.5 py-1 rounded-lg bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-600/40 font-semibold cursor-pointer">${escapeHtml(lk.name)}</button>`).join("")}
+                    </div>
+                </div>
+                <div class="pt-1 border-t border-piedra-700/70 space-y-1">
+                    <p class="text-[11px] font-bold text-amber-200">Alternativas cercanas por Google Maps (fuera de portales de empleo):</p>
+                    <div class="flex flex-col gap-1">
+                        ${mapsAlternatives.map((alt) => `<button type="button" onclick="confirmAndOpenAISearchPage('${escapeHtml(alt.url)}')" class="text-left text-emerald-300 hover:underline font-medium cursor-pointer">• ${escapeHtml(alt.label)}</button>`).join("")}
+                    </div>
+                </div>
+                ${summaryItems.length > 0 ? `
+                    <ul class="list-disc pl-4 space-y-1 text-amber-100 pt-1">
+                        ${summaryItems.map((s) => `<li><strong>${escapeHtml(s.title)}</strong> — ${escapeHtml(s.locality)} (${s.distanceKm.toFixed(1)} km) • <a href="${escapeHtml(s.portalUrl || portalLinks[0].url)}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-300">${escapeHtml(s.portalName || "LinkedIn")}</a></li>`).join("")}
+                    </ul>
+                ` : `<p class="text-piedra-300">No hubo coincidencia interna exacta para "${escapeHtml(searchTopic)}", pero puedes abrir cualquiera de los portales o Google Maps aquí arriba cuando tú decidas.</p>`}
+            `;
+        }
+
+        function startLive247Pulse() {
+            if (live247Timer) clearInterval(live247Timer);
+            live247Timer = setInterval(() => {
+                if (!Array.isArray(state.jobs) || state.jobs.length === 0) return;
+                const idx = Math.floor(Math.random() * state.jobs.length);
+                state.jobs[idx].updatedAt = Date.now();
+                const nowTime = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+                const ticker = document.getElementById("live-ticker");
+                if (ticker) {
+                    ticker.textContent = `Radar GPS 24/7 activo (${nowTime}) • ${state.jobs.length} vacantes en Bogotá • Portales en vivo`;
+                }
+            }, 30000);
+        }
+
+        function bootApp() {
+            populateSelects();
+            seedInitialJobs();
+            state.sharedJobIds = [];
+            onFilterChange();
+            initMap();
+            checkLocationPermissionUI();
+            renderInitialAIRecommendations();
+            startLive247Pulse();
+        }
+
+        if (document.readyState === "loading") {
+            window.addEventListener("DOMContentLoaded", bootApp);
+        } else {
+            bootApp();
+        }
+    </script>
+</body>
+</html>
